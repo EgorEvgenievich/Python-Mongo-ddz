@@ -3,25 +3,12 @@ import argparse
 from pprint import pprint
 from connect import Connect
 
-def get_nobody():
-    nobody = {"fullname": "2018_3_03_Nobody",
-              "subjects": [{"timp": [
-                  {"pz": "pz10", "mark": 7, "maxmark": 10, "exec_time": "9 minuts 10 seconds", "ip": "192.168.115.100"},
-                  {"pz": "pz9", "mark": 8, "maxmark": 10, "exec_time": "9 minuts 10 seconds",
-                   "ip": "192.168.115.100"}]},
-                           {"bos": [{"pz": "pz10", "mark": 8, "maxmark": 10, "exec_time": "9 minuts 10 seconds",
-                                     "ip": "192.168.115.100"}]},
-                           {"Python": [{"pz": "pz10", "mark": 6, "maxmark": 10, "exec_time": "9 minuts 10 seconds",
-                                        "ip": "192.168.115.100"}]}
-                           ]
-              }
-    return nobody
-
 def arg_parser():
 	parser = argparse.ArgumentParser(description =' display journal (по умолчанию как входной файл)')
-	parser.add_argument("-f","--fullname",action='append',help="display listener with name <fulname> marks")
-	parser.add_argument("-s","--subject",action='append',help="display journal for <subject>")
-	parser.add_argument("-p",action='append',help="display pz for subject ")
+	parser.add_argument("-avg","--average",action='store_true',help="display average mark for [fullname] [subject]")
+	parser.add_argument("-f","--fullnames",action='append',help="display listener with name <fulname> marks")
+	parser.add_argument("-s","--subjects",action='append',help="display journal for <subject>")
+	parser.add_argument("-p",action='append',help="display pz for subject")
 	parser.add_argument("-j","--json",help="display in JSON format")
 	return parser.parse_args()
 
@@ -39,46 +26,57 @@ class Storage():
         if fullnames and not subjects and not p:
             for fullname in fullnames:
                 pipeline = [{"$match": {"fullname": fullname}}]
-                print(pipeline)
                 for x in col.aggregate(pipeline):
                     pprint(x)
+            exit(0)
         if subjects and not p:
-            for subject in subjects:
-                pipeline = [{"$unwind": "$subjects"},{"$unwind": "$subjects."+subject}]
-                for x in col.aggregate(pipeline):
-                    pprint(x)
+            for fullname in fullnames:
+                for subject in subjects:
+                    pipeline = [{"$match": {"fullname":fullname}},{"$unwind":"$subjects"},
+                                {"$match":{"subjects.subject":subject}}]
+                    for x in col.aggregate(pipeline):
+                        pprint(x)
             exit(0)
         if subjects and p:
-            for subject in subjects:
-                for pz in p:
-                    pipeline = [{"$unwind": "$subjects"}, {"$unwind": "$subjects." + subject},
-                                {"$match": {"subjects." + subject + ".pz": pz}}]
-                for x in col.aggregate(pipeline):
-                    pprint(x)
+            for fullname in fullnames:
+                for subject in subjects:
+                    for pz in p:
+                        pipeline = [{"$match": {"fullname":fullname}},{"$unwind":"$subjects"},
+                                {"$match":{"subjects.subject":subject,"subjects.pz":pz}}]
+                        for x in col.aggregate(pipeline):
+                            pprint(x)
             exit(0)
-        for x in col.find():
-            pprint(x)
 
     def get_avg_mark(self, fullnames=None, subjects=None ):
-        col=self.get_col()
-        if(fullnames==None):
+        client=Connect().get_connection()
+        db=client["listners"]
+        col=db["listners"]
+        if fullnames==None:
             fullnames=col.distinct("fullname")
-        for fullname in fullnames :
-            if subjects==None:
-               subjects=dict(col.distinct("subjects")).keys()
+        if subjects==None:
+            subjects=col.distinct("subjects.subject")
+        for fullname in fullnames:
             for subject in subjects:
-                pipeline=[{"$unwind":"$subjects."+subject}
-                    ,{"$project":{"_id":0,"mark":1,"count":{"$add":[1]}}}
-                    ,{"$group":{"total":{"$sum":"mark"},"amount":{"$sum":"count"}}}
-                    ,{"$project":{"total":1,"amount":1}}]
-                obj=dict(col.aggregate(pipeline))
-                print("average is",obj["total"]/obj["amount"])
-
+                pipeline=[{"$match":{"fullname":fullname}},{"$unwind":"$subjects"},
+                          {"$match":{"subjects.subject":subject}},
+                          {"$project":{"_id":0,"fullname":1,"subject":"$subjects.subject","mark":"$subjects.mark"
+                                        ,"maxmark":"$subjects.maxmark","count":{"$add":[1]}}},
+                         {"$group": {"_id":{"fullname":"$fullname","subject":"$subject"},
+                          "average mark": {"$avg":"$mark"}}}
+                ]
+                for x in col. aggregate(pipeline):
+                    pprint(x)
+                # pprint(col.aggregate(pipeline))
 
 def main():
     args= arg_parser()
-    print(args.subject)
-
+    storage=Storage()
+    args=arg_parser()
+    if args.average:
+        storage.get_avg_mark(args.fullnames,args.subjects)
+        exit(0)
+    pprint(args)
+    storage.get_stat(fullnames=args.fullnames,subjects=args.subjects,p=args.p)
 main()
 # dict(args).
 # if len(args.fullname) and not len(args.p) and not len(args.p) :
