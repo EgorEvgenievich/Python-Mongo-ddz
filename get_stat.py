@@ -11,6 +11,19 @@ def arg_parser():
 	parser.add_argument("-j", "--json", action="store_true", help="display in JSON format")
 	return parser.parse_args()
 
+class Printer():
+    def __init__(self, fullname, subject, pz, date, time, mark, maxmark, exec_time, ip_addr):
+        self.fullname=fullname
+        self.subject=subject
+        self.pz=pz
+        self.date=date
+        self.time=time
+        self.maxmark=maxmark
+        self.mark=mark
+        self.exec_time=exec_time
+        self.ip_addr=ip_addr
+    def __str__(self):
+        return f"{self.fullname} {self.subject} {self.pz} {self.date} {self.time} {self.mark}/{self.maxmark} {self.exec_time} {self.ip_addr}"
 class Storage():
     """Journal of marks"""
     def get_col(self):
@@ -62,12 +75,12 @@ class Storage():
                     pipeline = [{"$match": {"fullname":fullname}},
                               {"$project": {"_id":0}}, {"$unwind":"$subjects"}]
                     for cursor in col.aggregate(pipeline):
-                        print("{0} {1} {2} {3} {4} {5} {6} {7} {8}".format(
-                            cursor["fullname"], cursor["subjects"]["subject"],
+                        subject=Printer(cursor["fullname"], cursor["subjects"]["subject"],
                             cursor["subjects"]["pz"], cursor["subjects"]["date"],
                             cursor["subjects"]["time"], cursor["subjects"]["mark"],
                             cursor["subjects"]["maxmark"], cursor["subjects"]["exec_time"],
-                            cursor["subjects"]["ip_addr"]))
+                            cursor["subjects"]["ip_addr"])
+                        print(subject)
 
             exit(0)
         if subjects and not p:
@@ -80,12 +93,12 @@ class Storage():
                             pprint(cursor)
                     else:
                         for cursor in col.aggregate(pipeline):
-                            print("{0} {1} {2} {3} {4} {5} {6} {7} {8}".format(
-                                cursor["fullname"], cursor["subjects"]["subject"],
-                                cursor["subjects"]["pz"], cursor["subjects"]["date"],
-                                cursor["subjects"]["time"], cursor["subjects"]["mark"],
-                                cursor["subjects"]["maxmark"], cursor["subjects"]["exec_time"],
-                                cursor["subjects"]["ip_addr"]))
+                            subject = Printer(cursor["fullname"], cursor["subjects"]["subject"],
+                                              cursor["subjects"]["pz"], cursor["subjects"]["date"],
+                                              cursor["subjects"]["time"], cursor["subjects"]["mark"],
+                                              cursor["subjects"]["maxmark"], cursor["subjects"]["exec_time"],
+                                              cursor["subjects"]["ip_addr"])
+                            print(subject)
 
             exit(0)
         if subjects and p:
@@ -99,12 +112,12 @@ class Storage():
                                 pprint(cursor)
                         else:
                             for cursor in col.aggregate(pipeline):
-                                print("{0} {1} {2} {3} {4} {5} {6} {7} {8}".format(
-                                    cursor["fullname"], cursor["subjects"]["subject"],
-                                    cursor["subjects"]["pz"], cursor["subjects"]["date"],
-                                    cursor["subjects"]["time"], cursor["subjects"]["mark"],
-                                    cursor["subjects"]["maxmark"], cursor["subjects"]["exec_time"],
-                                    cursor["subjects"]["ip_addr"]))
+                                subject = Printer(cursor["fullname"], cursor["subjects"]["subject"],
+                                                  cursor["subjects"]["pz"], cursor["subjects"]["date"],
+                                                  cursor["subjects"]["time"], cursor["subjects"]["mark"],
+                                                  cursor["subjects"]["maxmark"], cursor["subjects"]["exec_time"],
+                                                  cursor["subjects"]["ip_addr"])
+                                print(subject)
             exit(0)
 
 
